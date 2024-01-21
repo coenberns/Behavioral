@@ -17,10 +17,11 @@ import plotly
 
 
 #%% variables and loading
-max_iterations = 15000
+max_iterations = 8000
 egg_data = cebra.load_data(file='egg_time_beh_cat_new.h5', key='egg_time', columns=[f'Channel {i}' for i in range(8)]) #include timestamps or not??
 cat_labels = cebra.load_data('egg_time_beh_cat_new.h5', key = 'category')
-beh_labels = cebra.load_data('egg_time_beh_cat_new.h5', key = 'behavior')
+beh_labels_old = cebra.load_data('egg_time_beh_cat_new.h5', key = 'behavior')
+beh_labels = cebra.load_data('egg_time_beh_cat_new.h5', key = 'behavior_ambulation_diff')
 # behavioral = cebra.load_data(file='', key=None, columns=['Behavior', 'Category'])
 
 #%% Grid search (hyperparam sweep) for optimizing parameters
@@ -75,10 +76,9 @@ cebra.plot_loss(cebra_time_model)
 cebra.plot_temperature(cebra_time_model)
 
 
-#%% CEBRA BEHAVIOR MODEL
+#%% CEBRA CATEGORY TRAINED MODEL
 max_iterations=8000
-
-cebra_behavioral_model = CEBRA(model_architecture='offset10-model',
+cebra_category_model = CEBRA(model_architecture='offset10-model',
                         batch_size=512,
                         learning_rate=0.003,
                         # temperature=.5,
@@ -93,19 +93,48 @@ cebra_behavioral_model = CEBRA(model_architecture='offset10-model',
                         time_offsets=6)
 
 # Training with category labels (active,inactive,feeding/drinking)
-cebra_behavioral_model.fit(egg_data, cat_labels)
+cebra_category_model.fit(egg_data, cat_labels)
 #%%
 # Decode into embedding using both egg_time and category labels
-egg_beh = cebra_behavioral_model.transform(egg_data)
+egg_cat_emb = cebra_category_model.transform(egg_data)
 # Plot the embedding
-cebra.plot_embedding_interactive(embedding=egg_beh, embedding_labels=cat_labels,cmap='cebra', idx_order=(0,1,2), title='Cebra-Behavior (Categories)')
+ax =cebra.plot_embedding(embedding=egg_cat_emb, embedding_labels=cat_labels,cmap='cebra',idx_order=(0,1,2),title='Cebra-Behavior (Categories)')
+ax.set_title('CEBRA-Behavior on categorical labels', size=18)
+ax.set_xlabel('Latent vector 1', size=15)
+ax.set_ylabel('Latent vector 2', size=15)
+plt.show()
 #%%
 # Plot loss and temperature
-cebra.plot_loss(cebra_behavioral_model)
-cebra.plot_temperature(cebra_behavioral_model)
+cebra.plot_loss(cebra_category_model)
+cebra.plot_temperature(cebra_category_model)
 
+#%% CEBRA CATEGORY SHUFFLED
+max_iterations=8000
+shuffled_labels = np.random.permutation(cat_labels)
 
-#%% CEBRA BEHAVIORAL MODEL BASED ON 
+cebra_cat_shuffled_model = CEBRA(model_architecture='offset10-model',
+                        batch_size=512,
+                        learning_rate=0.003,
+                        # temperature=.5,
+                        temperature_mode='auto',
+                        min_temperature=1e-1,
+                        output_dimension=3,
+                        max_iterations=max_iterations,
+                        distance='cosine',
+                        conditional='time_delta',
+                        device='cuda_if_available',
+                        verbose=True,
+                        time_offsets=6)
+
+cebra_cat_shuffled_model.fit(egg_data, shuffled_labels)
+
+#%% Get shuffled embeddings
+shuffled_cat_emb = cebra_cat_shuffled_model.transform(egg_data)
+cebra.plot_embedding(embedding=shuffled_cat_emb,embedding_labels=cat_labels, title='CEBRA-Shuffled', idx_order=(0,1))
+
+cebra.plot_loss(cebra_cat_shuffled_model)
+cebra.plot_temperature(cebra_cat_shuffled_model)
+#%% CEBRA CATEGORIAL MODEL WITH SPLITTING OF TRAIN AND TEST
 from sklearn.model_selection import train_test_split
 
 # 1. Split your neural data and auxiliary variable
@@ -120,7 +149,7 @@ from sklearn.model_selection import train_test_split
                      test_size=0.1)
 
 # 2. Train a CEBRA-Behavior model on training data only
-cebra_behavioral_model = CEBRA(model_architecture='offset10-model',
+cebra_category_model = CEBRA(model_architecture='offset10-model',
                         batch_size=512,
                         learning_rate=0.003,
                         # temperature=.5,
@@ -134,13 +163,13 @@ cebra_behavioral_model = CEBRA(model_architecture='offset10-model',
                         verbose=True,
                         time_offsets=6)
 
-cebra_behavioral_model.fit(train_data, train_discrete_label)
+cebra_category_model.fit(train_data, train_discrete_label)
 
 
 #%%
 # 3. Get embedding for training and validation data
-train_embedding = cebra_behavioral_model.transform(train_data)
-valid_embedding = cebra_behavioral_model.transform(valid_data)
+train_embedding = cebra_category_model.transform(train_data)
+valid_embedding = cebra_category_model.transform(valid_data)
 
 # 4. Train the decoder on training embedding and labels
 decoder = cebra.KNNDecoder()
@@ -154,4 +183,29 @@ print(score)
 cebra.plot_embedding(train_embedding,embedding_labels=train_discrete_label, title='Train Embedding')
 cebra.plot_embedding(valid_embedding,embedding_labels=valid_discrete_label, title='Valid Embedding')
 
+# %% USING THE NEW BEHAVIORAL LABELS WITHOUT THE LARGE AMBULATION LABEL
+max_iterations=10000
+cebra_behavior_model = CEBRA(model_architecture='offset10-model',
+                        batch_size=512,
+                        learning_rate=0.003,
+                        temperature=.5,
+                        # temperature_mode='auto',
+                        # min_temperature=1e-1,
+                        output_dimension=3,
+                        max_iterations=max_iterations,
+                        distance='cosine',
+                        conditional='time_delta',
+                        device='cuda_if_available',
+                        verbose=True,
+                        time_offsets=6)
+
+cebra_behavior_model.fit(egg_data, beh_labels, egg_data.continuous_index.numpy())
+
+#%%
+behavior_embedding = cebra_behavior_model.transform(egg_data)
+cebra.plot_embedding_interactive(behavior_embedding, embedding_labels=beh_labels, title="CEBRA-Behavior", cmap='viridis')
+
+#%%
+cebra.plot_loss(cebra_behavior_model)
+cebra.plot_temperature(cebra_behavior_model)
 # %%
