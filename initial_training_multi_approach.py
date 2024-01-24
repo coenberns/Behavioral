@@ -22,6 +22,7 @@ egg_data = cebra.load_data(file='egg_time_beh_cat_new.h5', key='egg_time', colum
 cat_labels = cebra.load_data('egg_time_beh_cat_new.h5', key = 'category')
 beh_labels_old = cebra.load_data('egg_time_beh_cat_new.h5', key = 'behavior')
 beh_labels = cebra.load_data('egg_time_beh_cat_new.h5', key = 'behavior_ambulation_diff')
+timesteps=np.arange(0,egg_data.shape[0]).flatten()
 # behavioral = cebra.load_data(file='', key=None, columns=['Behavior', 'Category'])
 
 #%% Grid search (hyperparam sweep) for optimizing parameters
@@ -100,9 +101,9 @@ egg_cat_emb = cebra_category_model.transform(egg_data)
 # Plot the embedding
 ax =cebra.plot_embedding(embedding=egg_cat_emb, embedding_labels=cat_labels,cmap='cebra',idx_order=(0,1,2),title='Cebra-Behavior (Categories)')
 ax.set_title('CEBRA-Behavior on categorical labels', size=18)
-ax.set_xlabel('Latent vector 1', size=15)
-ax.set_ylabel('Latent vector 2', size=15)
-plt.show()
+# ax.set_xlabel('Latent vector 1', size=15)
+# ax.set_ylabel('Latent vector 2', size=15)
+# plt.show()
 #%%
 # Plot loss and temperature
 cebra.plot_loss(cebra_category_model)
@@ -110,7 +111,7 @@ cebra.plot_temperature(cebra_category_model)
 
 #%% CEBRA CATEGORY SHUFFLED
 max_iterations=8000
-shuffled_labels = np.random.permutation(cat_labels)
+shuffled_cat = np.random.permutation(cat_labels)
 
 cebra_cat_shuffled_model = CEBRA(model_architecture='offset10-model',
                         batch_size=512,
@@ -126,11 +127,11 @@ cebra_cat_shuffled_model = CEBRA(model_architecture='offset10-model',
                         verbose=True,
                         time_offsets=6)
 
-cebra_cat_shuffled_model.fit(egg_data, shuffled_labels)
+cebra_cat_shuffled_model.fit(egg_data, shuffled_cat)
 
 #%% Get shuffled embeddings
 shuffled_cat_emb = cebra_cat_shuffled_model.transform(egg_data)
-cebra.plot_embedding(embedding=shuffled_cat_emb,embedding_labels=cat_labels, title='CEBRA-Shuffled', idx_order=(0,1))
+cebra.plot_embedding(embedding=shuffled_cat_emb,embedding_labels=shuffled_cat, title='CEBRA-Shuffled', idx_order=(0,1,2))
 
 cebra.plot_loss(cebra_cat_shuffled_model)
 cebra.plot_temperature(cebra_cat_shuffled_model)
@@ -184,13 +185,13 @@ cebra.plot_embedding(train_embedding,embedding_labels=train_discrete_label, titl
 cebra.plot_embedding(valid_embedding,embedding_labels=valid_discrete_label, title='Valid Embedding')
 
 # %% USING THE NEW BEHAVIORAL LABELS WITHOUT THE LARGE AMBULATION LABEL
-max_iterations=10000
+max_iterations= 8000
 cebra_behavior_model = CEBRA(model_architecture='offset10-model',
                         batch_size=512,
                         learning_rate=0.003,
-                        temperature=.5,
-                        # temperature_mode='auto',
-                        # min_temperature=1e-1,
+                        # temperature=.5,
+                        temperature_mode='auto',
+                        min_temperature=1e-1,
                         output_dimension=3,
                         max_iterations=max_iterations,
                         distance='cosine',
@@ -199,13 +200,46 @@ cebra_behavior_model = CEBRA(model_architecture='offset10-model',
                         verbose=True,
                         time_offsets=6)
 
-cebra_behavior_model.fit(egg_data, beh_labels, egg_data.continuous_index.numpy())
+cebra_behavior_model.fit(egg_data, beh_labels)
 
 #%%
 behavior_embedding = cebra_behavior_model.transform(egg_data)
-cebra.plot_embedding_interactive(behavior_embedding, embedding_labels=beh_labels, title="CEBRA-Behavior", cmap='viridis')
+cebra.plot_embedding(behavior_embedding, embedding_labels=beh_labels, title="CEBRA-Behavior", cmap='viridis',idx_order=(0,1,2))
 
 #%%
 cebra.plot_loss(cebra_behavior_model)
 cebra.plot_temperature(cebra_behavior_model)
+
+# %% CEBRA Behavioral Labels with shuffling
+max_iterations = 8000
+shuffled_behavior = np.random.permutation(beh_labels)
+
+cebra_beh_shuffled_model = CEBRA(model_architecture='offset10-model',
+                        batch_size=512,
+                        learning_rate=0.003,
+                        # temperature=.5,
+                        temperature_mode='auto',
+                        min_temperature=1e-1,
+                        output_dimension=3,
+                        max_iterations=max_iterations,
+                        distance='cosine',
+                        conditional='time_delta',
+                        device='cuda_if_available',
+                        verbose=True,
+                        time_offsets=6)
+
+cebra_beh_shuffled_model.fit(egg_data, shuffled_behavior)
+
+#%%
+shuffled_beh_emb = cebra_beh_shuffled_model.transform(egg_data)
+cebra.plot_embedding(embedding=shuffled_beh_emb,embedding_labels=shuffled_behavior,cmap='viridis',
+                        idx_order=(0,1,2),title='CEBRA-Behavior Shuffled')
+
+#%%
+cebra.plot_loss(cebra_beh_shuffled_model)
+cebra.plot_temperature(cebra_beh_shuffled_model)
+
+
+
+
 # %%
