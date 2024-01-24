@@ -19,10 +19,11 @@ import plotly
 #%% variables and loading
 max_iterations = 8000
 egg_data = cebra.load_data(file='egg_time_beh_cat_new.h5', key='egg_time', columns=[f'Channel {i}' for i in range(8)]) #include timestamps or not??
+timesteps = cebra.load_data(file='egg_time_beh_cat_new.h5', key='egg_time', columns=['timestamps'])
 cat_labels = cebra.load_data('egg_time_beh_cat_new.h5', key = 'category')
 beh_labels_old = cebra.load_data('egg_time_beh_cat_new.h5', key = 'behavior')
 beh_labels = cebra.load_data('egg_time_beh_cat_new.h5', key = 'behavior_ambulation_diff')
-timesteps=np.arange(0,egg_data.shape[0]).flatten()
+timesteps_np = np.array(np.arange(0, egg_data.shape[0]).flatten().tolist())
 # behavioral = cebra.load_data(file='', key=None, columns=['Behavior', 'Category'])
 
 #%% Grid search (hyperparam sweep) for optimizing parameters
@@ -56,25 +57,24 @@ cebra_time_model = CEBRA(model_architecture='offset10-model',
                         temperature_mode='constant',
                         # min_temperature=.1,
                         output_dimension=3,
-                        max_iterations=6000,
+                        max_iterations=8000,
                         distance='cosine',
                         conditional='time',
                         device='cuda_if_available',
                         verbose=True,
-                        time_offsets=1)
+                        time_offsets=6)
 
-#%% TRAINING TIME MODEL
-cebra_time_model.fit(egg_data)
+# TRAINING TIME MODEL
+cebra_time_model.fit(egg_data, timesteps)
 
-#%% Decode the data using the model to the latent space
-egg_time = cebra_time_model.transform(egg_data)
-
-#%% Plot the embedding of the CEBRA-Time model
-cebra.plot_embedding(embedding=egg_time, embedding_labels='time', idx_order=(0,1,2), title='CEBRA-Time', cmap='cebra')
-
-#%%
-cebra.plot_loss(cebra_time_model)
-cebra.plot_temperature(cebra_time_model)
+#%% Decode the datato the latent space using the model
+egg_time_emb = cebra_time_model.transform(egg_data)
+# Plot the embedding of the CEBRA-Time model
+cebra.plot_embedding_interactive(embedding=egg_time_emb, embedding_labels='time', idx_order=(0,1,2), title='CEBRA-Time', cmap='cebra')
+# Plot the loss over time for this model, see if it converges
+#cebra.plot_loss(cebra_time_model)
+## Could also plot the temperature vs time, if it is not constant
+# cebra.plot_temperature(cebra_time_model)
 
 
 #%% CEBRA CATEGORY TRAINED MODEL
@@ -82,9 +82,9 @@ max_iterations=8000
 cebra_category_model = CEBRA(model_architecture='offset10-model',
                         batch_size=512,
                         learning_rate=0.003,
-                        # temperature=.5,
-                        temperature_mode='auto',
-                        min_temperature=1e-1,
+                        temperature=.1,
+                        # temperature_mode='auto',
+                        # min_temperature=1e-1,
                         output_dimension=3,
                         max_iterations=max_iterations,
                         distance='cosine',
@@ -94,7 +94,7 @@ cebra_category_model = CEBRA(model_architecture='offset10-model',
                         time_offsets=6)
 
 # Training with category labels (active,inactive,feeding/drinking)
-cebra_category_model.fit(egg_data, cat_labels)
+cebra_category_model.fit(egg_data, timesteps, cat_labels)
 #%%
 # Decode into embedding using both egg_time and category labels
 egg_cat_emb = cebra_category_model.transform(egg_data)
