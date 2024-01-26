@@ -80,8 +80,6 @@ active = time_cat_data[:,1] == 0
 feeding = time_cat_data[:,1] == 1
 inactive = time_cat_data[:,1] == 2
 
-
-
 cebra.plot_embedding_interactive(embedding=egg_cat_emb2_hyb[feeding,:], embedding_labels=time_cat_data[feeding,0])
 
 #%%

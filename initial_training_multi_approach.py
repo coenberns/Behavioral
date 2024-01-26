@@ -56,7 +56,7 @@ cebra.plot_embedding(embedding=egg_time_emb, embedding_labels='time', idx_order=
 
 
 #%% CEBRA CATEGORY TRAINED MODEL
-max_iterations=5000
+max_iterations=8000
 time_cat1 = np.column_stack((timesteps,cat_labels))
 cebra_category_model = CEBRA(model_architecture='offset10-model',
                         batch_size=512,
@@ -74,7 +74,7 @@ cebra_category_model = CEBRA(model_architecture='offset10-model',
                         hybrid=True)
 
 # Training with category labels (active,inactive,feeding/drinking)
-cebra_category_model.fit(egg_data, time_cat1)
+cebra_category_model.fit(egg_data, cat_labels)
 #%%
 # Decode into embedding using both egg_time and category labels
 egg_cat_emb_hyb = cebra_category_model.transform(egg_data)
@@ -84,10 +84,10 @@ active1 = time_cat1[:,1] == 0
 feeding1 = time_cat1[:,1] == 1
 inactive1 = time_cat1[:,1] == 2
 
-cebra.plot_embedding_interactive(embedding=egg_cat_emb_hyb[feeding1,:], embedding_labels=time_cat1[feeding1,0])
+cebra.plot_embedding_interactive(embedding=egg_cat_emb_hyb[inactive1,:], embedding_labels=time_cat1[inactive1,0])
 
 #%%# Plot the embedding
-cebra.plot_embedding_interactive(embedding=egg_cat_emb, embedding_labels=cat_labels,cmap='viridis',title='Cebra-Behavior (Categories)')
+cebra.plot_embedding_interactive(embedding=egg_cat_emb_hyb, embedding_labels=cat_labels,cmap='viridis',title='Cebra-Behavior (Categories)')
 # ax.set_title('CEBRA-Behavior on categorical labels', size=18)
 # ax.set_xlabel('Latent vector 1', size=15)
 # ax.set_ylabel('Latent vector 2', size=15)
