@@ -24,7 +24,7 @@ hippocampus_b = cebra.datasets.init('rat-hippocampus-single-buddy')
 hippocampus_c = cebra.datasets.init('rat-hippocampus-single-cicero')
 hippocampus_g = cebra.datasets.init('rat-hippocampus-single-gatsby')
 
-names = ["achilles", "buddy", "cicero", "gatsby"]
+names = ["Benno", "Hippo"]
 datas = [hippocampus_a.neural.numpy(), hippocampus_b.neural.numpy(), hippocampus_c.neural.numpy(), hippocampus_g.neural.numpy()]
 labels = [hippocampus_a.continuous_index.numpy(), hippocampus_b.continuous_index.numpy(), hippocampus_c.continuous_index.numpy(), hippocampus_g.continuous_index.numpy()]
 

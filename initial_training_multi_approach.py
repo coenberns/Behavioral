@@ -27,6 +27,7 @@ timesteps_np = np.array(np.arange(0, egg_data.shape[0]).flatten().tolist())
 # behavioral = cebra.load_data(file='', key=None, columns=['Behavior', 'Category'])
 
 #%% CEBRA TIME MODEL -- HYPOTHESIS DRIVEN
+max_iterations=6000
 cebra_time_model = CEBRA(model_architecture='offset10-model',
                         batch_size=512,
                         learning_rate=0.003,
@@ -34,7 +35,7 @@ cebra_time_model = CEBRA(model_architecture='offset10-model',
                         temperature_mode='constant',
                         # min_temperature=.1,
                         output_dimension=3,
-                        max_iterations=8000,
+                        max_iterations=max_iterations,
                         distance='cosine',
                         conditional='time',
                         device='cuda_if_available',
@@ -42,12 +43,12 @@ cebra_time_model = CEBRA(model_architecture='offset10-model',
                         time_offsets=6)
 
 # TRAINING TIME MODEL
-cebra_time_model.fit(egg_data, timesteps)
+cebra_time_model.fit(egg_data)
 
 #%% Decode the datato the latent space using the model
 egg_time_emb = cebra_time_model.transform(egg_data)
 # Plot the embedding of the CEBRA-Time model
-cebra.plot_embedding_interactive(embedding=egg_time_emb, embedding_labels='time', idx_order=(0,1,2), title='CEBRA-Time', cmap='cebra')
+cebra.plot_embedding(embedding=egg_time_emb, embedding_labels='time', idx_order=(0,1,2), title='CEBRA-Time', cmap='cebra')
 # Plot the loss over time for this model, see if it converges
 #cebra.plot_loss(cebra_time_model)
 ## Could also plot the temperature vs time, if it is not constant
@@ -55,7 +56,8 @@ cebra.plot_embedding_interactive(embedding=egg_time_emb, embedding_labels='time'
 
 
 #%% CEBRA CATEGORY TRAINED MODEL
-max_iterations=8000
+max_iterations=5000
+time_cat1 = np.column_stack((timesteps,cat_labels))
 cebra_category_model = CEBRA(model_architecture='offset10-model',
                         batch_size=512,
                         learning_rate=0.003,
@@ -68,13 +70,21 @@ cebra_category_model = CEBRA(model_architecture='offset10-model',
                         conditional='time_delta',
                         device='cuda_if_available',
                         verbose=True,
-                        time_offsets=6)
+                        time_offsets=6,
+                        hybrid=True)
 
 # Training with category labels (active,inactive,feeding/drinking)
-cebra_category_model.fit(egg_data, timesteps, cat_labels)
+cebra_category_model.fit(egg_data, time_cat1)
 #%%
 # Decode into embedding using both egg_time and category labels
-egg_cat_emb = cebra_category_model.transform(egg_data)
+egg_cat_emb_hyb = cebra_category_model.transform(egg_data)
+
+#%%
+active1 = time_cat1[:,1] == 0
+feeding1 = time_cat1[:,1] == 1
+inactive1 = time_cat1[:,1] == 2
+
+cebra.plot_embedding_interactive(embedding=egg_cat_emb_hyb[feeding1,:], embedding_labels=time_cat1[feeding1,0])
 
 #%%# Plot the embedding
 cebra.plot_embedding_interactive(embedding=egg_cat_emb, embedding_labels=cat_labels,cmap='viridis',title='Cebra-Behavior (Categories)')

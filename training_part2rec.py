@@ -53,7 +53,7 @@ egg_time_emb = cebra_time_model_2.transform(egg_data2)
 cebra.plot_embedding_interactive(embedding=egg_time_emb, embedding_labels='time', idx_order=(0,1,2), title='CEBRA-Time', cmap='cebra')
 
 #%% CEBRA CATEGORY TRAINED MODEL
-max_iterations=4000
+max_iterations=500
 cebra_category_model2 = CEBRA(model_architecture='offset10-model',
                         batch_size=512,
                         learning_rate=0.003,
@@ -73,21 +73,25 @@ cebra_category_model2 = CEBRA(model_architecture='offset10-model',
 cebra_category_model2.fit(egg_data2,time_cat_data)
 #%%
 # Decode into embedding using both egg_time and category labels
-egg_cat_emb2_hyb = cebra_category_model2.transform(egg_data2_cat)
+egg_cat_emb2_hyb = cebra_category_model2.transform(egg_data2)
 
 #%%# Plot the embedding
-active = egg_data2_cat[:,0] == 0
-feed = egg_data2_cat[:,0] == 1
-inactive = egg_data2_cat[:,0] == 2
+active = time_cat_data[:,1] == 0
+feeding = time_cat_data[:,1] == 1
+inactive = time_cat_data[:,1] == 2
 
+
+
+cebra.plot_embedding_interactive(embedding=egg_cat_emb2_hyb[feeding,:], embedding_labels=time_cat_data[feeding,0])
+
+#%%
 fig = plt.figure(figsize=(10,10))
 
 ax1 = plt.subplot(111, projection='3d')
 
+for dir, cmap in zip([inactive], ["jet"]):
+    ax1=cebra.plot_embedding(ax=ax1, embedding=egg_cat_emb2_hyb[dir,:], embedding_labels=time_cat_data[dir,0], title='CEBRA-Behavior', cmap=cmap)
 
-for dir, cmap in zip([feed], ["rainbow"]):
-    ax1=cebra.plot_embedding(ax=ax1, embedding=egg_cat_emb2_hyb[dir,:], embedding_labels=cat_labels2[dir], title='CEBRA-Behavior', cmap=cmap)
-  
 # cebra.plot_embedding_interactive(embedding=egg_cat_emb2_hyb, embedding_labels=cat_labels2,cmap='cebra',title='Cebra-Behavior (Categories)')
 # ax.set_title('CEBRA-Behavior on categorical labels', size=18)
 # ax.set_xlabel('Latent vector 1', size=15)
