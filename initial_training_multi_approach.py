@@ -47,47 +47,51 @@ cebra_time_model.fit(egg_data)
 
 #%% Decode the datato the latent space using the model
 egg_time_emb = cebra_time_model.transform(egg_data)
-# Plot the embedding of the CEBRA-Time model
-cebra.plot_embedding(embedding=egg_time_emb, embedding_labels='time', idx_order=(0,1,2), title='CEBRA-Time', cmap='cebra')
+#%% Plot the embedding of the CEBRA-Time model
+cebra.plot_embedding_interactive(embedding=egg_time_emb, embedding_labels=cat_labels, idx_order=(0,1,2), title='CEBRA-Time', cmap='cebra')
 # Plot the loss over time for this model, see if it converges
 #cebra.plot_loss(cebra_time_model)
 ## Could also plot the temperature vs time, if it is not constant
 # cebra.plot_temperature(cebra_time_model)
 
 
-#%% CEBRA CATEGORY TRAINED MODEL
-max_iterations=8000
+#%% CEBRA BEHAVIOR CATEGORY TRAINED MODEL
+max_iterations=10000
 time_cat1 = np.column_stack((timesteps,cat_labels))
 cebra_category_model = CEBRA(model_architecture='offset10-model',
                         batch_size=512,
                         learning_rate=0.003,
-                        temperature=.1,
-                        # temperature_mode='auto',
-                        # min_temperature=1e-1,
+                        # temperature=.1,
+                        temperature_mode='auto',
+                        min_temperature=1e-2,
                         output_dimension=3,
                         max_iterations=max_iterations,
                         distance='cosine',
                         conditional='time_delta',
                         device='cuda_if_available',
                         verbose=True,
-                        time_offsets=6,
-                        hybrid=True)
+                        time_offsets=6)
 
 # Training with category labels (active,inactive,feeding/drinking)
 cebra_category_model.fit(egg_data, cat_labels)
 #%%
 # Decode into embedding using both egg_time and category labels
-egg_cat_emb_hyb = cebra_category_model.transform(egg_data)
+embedding_categg = cebra_category_model.transform(egg_data)
+c_active = cat_labels == 0
+c_feeding = cat_labels == 1
+c_inactive = cat_labels == 2
 
-#%%
-active1 = time_cat1[:,1] == 0
-feeding1 = time_cat1[:,1] == 1
-inactive1 = time_cat1[:,1] == 2
+fig = plt.figure(figsize=(20,20))
 
-cebra.plot_embedding_interactive(embedding=egg_cat_emb_hyb[inactive1,:], embedding_labels=time_cat1[inactive1,0])
+ax1=plt.subplot(141,projection='3d')
+import seaborn as sns
+labels = ['feeding', 'active', 'inactive']
 
+for dir,cmap in zip([c_feeding,c_active,c_inactive], ['cool', 'spring', 'winter']):
+    cebra.plot_embedding(ax=ax1,embedding=embedding_categg[dir,:],embedding_labels=cat_labels[dir],cmap=cmap,idx_order=(0,1,2),title='Cebra-Behavior (Categories)')
+    # plt.legend(cmap)
 #%%# Plot the embedding
-cebra.plot_embedding_interactive(embedding=egg_cat_emb_hyb, embedding_labels=cat_labels,cmap='viridis',title='Cebra-Behavior (Categories)')
+cebra.plot_embedding_interactive(embedding=embedding_categg, embedding_labels=cat_labels,cmap='viridis',title='Cebra-Behavior (Categories)')
 # ax.set_title('CEBRA-Behavior on categorical labels', size=18)
 # ax.set_xlabel('Latent vector 1', size=15)
 # ax.set_ylabel('Latent vector 2', size=15)
@@ -98,7 +102,7 @@ cebra.plot_loss(cebra_category_model)
 cebra.plot_temperature(cebra_category_model)
 
 #%% CEBRA CATEGORY SHUFFLED
-max_iterations=8000
+max_iterations=6000
 shuffled_cat = np.random.permutation(cat_labels)
 
 cebra_cat_shuffled_model = CEBRA(model_architecture='offset10-model',
@@ -115,7 +119,7 @@ cebra_cat_shuffled_model = CEBRA(model_architecture='offset10-model',
                         verbose=True,
                         time_offsets=6)
 
-cebra_cat_shuffled_model.fit(egg_data, timesteps, shuffled_cat)
+cebra_cat_shuffled_model.fit(egg_data, shuffled_cat)
 
 #%% Get shuffled embeddings
 shuffled_cat_emb = cebra_cat_shuffled_model.transform(egg_data)
@@ -124,6 +128,49 @@ cebra.plot_embedding_interactive(embedding=shuffled_cat_emb,embedding_labels=shu
 #%%
 cebra.plot_loss(cebra_cat_shuffled_model)
 # cebra.plot_temperature(cebra_cat_shuffled_model)
+
+#%%
+#%% CEBRA CATEGORY TRAINED HYBRID MODEL
+max_iterations=6000
+time_cat1 = np.column_stack((timesteps,cat_labels))
+hybrid_cat_model = CEBRA(model_architecture='offset10-model',
+                        batch_size=512,
+                        learning_rate=0.003,
+                        temperature=.1,
+                        # temperature_mode='auto',
+                        # min_temperature=1e-1,
+                        output_dimension=3,
+                        max_iterations=max_iterations,
+                        distance='cosine',
+                        conditional='time_delta',
+                        device='cuda_if_available',
+                        verbose=True,
+                        time_offsets=6)
+
+# Training with category labels (active,inactive,feeding/drinking)
+hybrid_cat_model.fit(egg_data, cat_labels)
+#%%
+# Decode into embedding using both egg_time and category labels
+egg_cat_emb_hyb = hybrid_cat_model.transform(egg_data)
+
+#%%
+active1 = time_cat1[:,1] == 0
+feeding1 = time_cat1[:,1] == 1
+inactive1 = time_cat1[:,1] == 2
+
+cebra.plot_embedding_interactive(embedding=egg_cat_emb_hyb[inactive1,:], embedding_labels=time_cat1[inactive1,0])
+
+#%%# Plot the embedding
+cebra.plot_embedding_interactive(embedding=egg_cat_emb_hyb, embedding_labels=cat_labels,cmap='viridis',title='Cebra-Behavior (Categories)')
+# ax.set_title('CEBRA-Behavior on categorical labels', size=18)
+# ax.set_xlabel('Latent vector 1', size=15)
+# ax.set_ylabel('Latent vector 2', size=15)
+# plt.show()
+#%%
+# Plot loss and temperature
+cebra.plot_loss(hybrid_cat_model)
+cebra.plot_temperature(hybrid_cat_model)
+
 #%% CEBRA CATEGORIAL MODEL WITH SPLITTING OF TRAIN AND TEST
 from sklearn.model_selection import train_test_split
 
