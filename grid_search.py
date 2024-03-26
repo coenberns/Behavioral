@@ -20,22 +20,29 @@ import plotly
 #%% DATA LOADING
 max_iterations = 8000
 egg_data = cebra.load_data(file='egg_time_beh_cat_new.h5', key='egg_time', columns=[f'Channel {i}' for i in range(8)]) #include timestamps or not??
-timesteps = cebra.load_data(file='egg_time_beh_cat_new.h5', key='egg_time', columns=['timestamps'])
 cat_labels = cebra.load_data('egg_time_beh_cat_new.h5', key = 'category')
-beh_labels_old = cebra.load_data('egg_time_beh_cat_new.h5', key = 'behavior')
-beh_labels = cebra.load_data('egg_time_beh_cat_new.h5', key = 'behavior_ambulation_diff')
-timesteps_np = np.array(np.arange(0, egg_data.shape[0]).flatten().tolist())
+egg_sw = cebra.load_data(file='0105_all_slowwave.h5', key='0105',columns=[f'Channel {i}' for i in range(8)]) #include timestamps or not??
+dfreqs = cebra.load_data(file='0105_DomFreq_segs_of120s_sm_window_n4.h5', key='0105', columns=['DF_avg', 'SW_bool'])
+egg_sw_6hday = egg_sw[0:11000,:]
+dfreqs_6hday = dfreqs[0:11000,:]
+egg_sw_6hnight = egg_sw[11000:22000,:]
+dfreqs_6hnight = dfreqs[11000:22000,:]
+
 
 #%% Grid search (hyperparam sweep) for optimizing parameters
 # TAKES A LONG TIME BASED ON AMOUNT OF PARAMETERS
 params_grid = dict(
-    batch_size = [512,1024],
-    learning_rate = [3e-3],
-    temperature_mode='auto',
-    min_temperature=.1,
-    time_offsets = [1,5,10],
-    max_iterations = 8000,
-    verbose = True)
+        model_architecture='offset5-model',
+        batch_size = [512],
+        learning_rate = [3e-3],
+        temperature_mode= 'auto',
+        min_temperature=1e-2,
+        time_offsets = [5,10],
+        num_hidden_units = [32,64],
+        output_dimension = [9],
+        max_iterations = [10000],
+        verbose = True
+    )
 
 # 2. Fit the models generated from the list of parameters
 grid_search = cebra.grid_search.GridSearch()
@@ -43,10 +50,16 @@ grid_models, parameter_grid = grid_search.generate_models(params_grid)
 
 #%% WARNING THIS STEP TAKES A CONSIDERABLE AMOUNT OF TIME
 # Training models for best determining optimal parameters
-grid_training = grid_search.fit_models(datasets={"egg_time_data": egg_data, "egg_cat_data": (egg_data, cat_labels), "egg_beh_data": (egg_data, beh_labels)},
+grid_training = grid_search.fit_models(datasets=
+                                        {
+                                        "0105_egg_dfreqs_day": (egg_sw_6hday, dfreqs_6hday),
+                                        "0105_egg_dfreqs_night": (egg_sw_6hnight, dfreqs_6hnight)
+                                        },
                        params=params_grid,
-                       models_dir='grid_search_0124')
+                       models_dir='grid_0325_offset5_0105_daynight')
 
+#%%
 # Determining best model
-best_model, best_model_name = grid_search.get_best_model(scoring='infonce_loss', models_dir='grid_search_0124')
+best_model, best_model_name = grid_search.get_best_model(scoring='infonce_loss', models_dir='grid_0325_offset5_0105_daynight')
 # embedding = best_model.transform(egg_data)
+# %%
